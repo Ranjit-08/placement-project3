@@ -6,31 +6,41 @@ metadata:
     type: backend
   namespace: backend
 spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      type: backend
+
   template:
     metadata:
-      name: datastore-backend
       labels:
         type: backend
+
     spec:
       containers:
         - name: datastore-backend
           image: 634107240549.dkr.ecr.us-east-1.amazonaws.com/datastore:v47.0
+          imagePullPolicy: Always
+
           env:
-            - name: MYSQL_HOST
+            - name: SPRING_DATASOURCE_URL
               valueFrom:
                 configMapKeyRef:
                   name: datastore-be-cm
                   key: mysqlHost
-            - name: MYSQL_USERNAME
+
+            - name: SPRING_DATASOURCE_USERNAME
               valueFrom:
                 configMapKeyRef:
                   name: datastore-be-cm
                   key: mysqlUname
-            - name: MYSQL_PASSWORD
+
+            - name: SPRING_DATASOURCE_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: datastore-be-secret
                   key: mysqlPassword
+
           resources:
             requests:
               cpu: 100m
@@ -38,34 +48,32 @@ spec:
             limits:
               cpu: 1
               memory: "1Gi"
+
+          ports:
+            - containerPort: 8084
+
+          # ✅ FIXED PROBES
           livenessProbe:
             httpGet:
-              path: /actuator
+              path: /actuator/health
               port: 8084
-            initialDelaySeconds: 20
-            periodSeconds: 3
-            timeoutSeconds: 4
-            failureThreshold: 3
+            initialDelaySeconds: 30
+            periodSeconds: 10
+
           readinessProbe:
             httpGet:
-              path: /actuator
+              path: /actuator/health
               port: 8084
-            initialDelaySeconds: 20
-            periodSeconds: 3
-            timeoutSeconds: 4
-            failureThreshold: 3
+            initialDelaySeconds: 30
+            periodSeconds: 10
+
           startupProbe:
             httpGet:
-              path: /actuator
+              path: /actuator/health
               port: 8084
-            initialDelaySeconds: 20
-            periodSeconds: 3
-            timeoutSeconds: 4
-            failureThreshold: 3
-  replicas: 1
-  selector:
-    matchLabels:
-      type: backend
+            initialDelaySeconds: 40
+            periodSeconds: 10
+            failureThreshold: 10
 
 ---
 
@@ -78,8 +86,9 @@ metadata:
     prometheus.io/path: /actuator/prometheus
     prometheus.io/scrape: "true"
 spec:
+  selector:
+    type: backend
+
   ports:
     - port: 8081
       targetPort: 8084
-  selector:
-    type: backend
